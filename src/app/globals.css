@@ -30,16 +30,6 @@ body {
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
 @keyframes fade-in {
   from {
     opacity: 0;

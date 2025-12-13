@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase, getGameRoom, getPlayers, subscribeToRoom } from '@/lib/supabase/poker';
-import type { GameRoom, Player, GameAction } from '@/lib/types/poker';
+import { supabase, getGameRoom, getPlayers, subscribeToRoom, calculateSidePots, getSidePots } from '@/lib/supabase/poker';
+import type { GameRoom, Player, GameAction, SidePot, PotWinnerSelection } from '@/lib/types/poker';
 import PlayerCard from '@/components/poker/PlayerCard';
 import ActionPanel from '@/components/poker/ActionPanel';
 import PotDisplay from '@/components/poker/PotDisplay';
@@ -18,6 +18,7 @@ export default function RoomPage() {
 
     const [room, setRoom] = useState<GameRoom | null>(null);
     const [players, setPlayers] = useState<Player[]>([]);
+    const [sidePots, setSidePots] = useState<SidePot[]>([]);
     const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -67,19 +68,28 @@ export default function RoomPage() {
         };
     }, [roomCode]);
 
-    const handleDistributePot = async (winnerIds: string[]) => {
+    const handleCalculateSidePots = async () => {
+        if (!room) return;
+
+        const pots = await calculateSidePots(room.id);
+        setSidePots(pots);
+        setShowWinnerSelect(true);
+    };
+
+    const handleDistributePot = async (selections: PotWinnerSelection[]) => {
         if (!room) return;
 
         try {
             const response = await fetch('/api/rounds/distribute', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: room.id, winner_ids: winnerIds }),
+                body: JSON.stringify({ room_id: room.id, pot_winners: selections }),
             });
 
             const data = await response.json();
             if (data.success) {
                 setShowWinnerSelect(false);
+                setSidePots([]);
             } else {
                 alert(data.error || 'ポット配分に失敗しました');
             }
@@ -196,6 +206,7 @@ export default function RoomPage() {
                 <ActionPanel
                     player={currentPlayer}
                     room={room}
+                    players={players}
                     onActionComplete={() => { }}
                 />
             )}
@@ -205,7 +216,7 @@ export default function RoomPage() {
                 <div className="p-6 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700">
                     <h3 className="text-lg font-semibold mb-4 text-teal-400">ラウンド管理</h3>
                     <button
-                        onClick={() => setShowWinnerSelect(true)}
+                        onClick={handleCalculateSidePots}
                         className="w-full py-3 px-6 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg"
                     >
                         🏆 ラウンド終了 - 勝者を選択
@@ -214,13 +225,16 @@ export default function RoomPage() {
             </div>
 
             {/* 勝者選択モーダル */}
-            {showWinnerSelect && (
+            {showWinnerSelect && sidePots.length > 0 && (
                 <WinnerSelector
+                    sidePots={sidePots}
                     players={players}
-                    pot={room.current_pot}
                     dealerPosition={room.dealer_position}
                     onSelectWinners={handleDistributePot}
-                    onCancel={() => setShowWinnerSelect(false)}
+                    onCancel={() => {
+                        setShowWinnerSelect(false);
+                        setSidePots([]);
+                    }}
                 />
             )}
 

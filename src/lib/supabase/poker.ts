@@ -416,3 +416,119 @@ export async function getCoinTransfers(roomId: string): Promise<any[]> {
     return data || [];
 }
 
+// サイドポット関連
+export async function calculateSidePots(roomId: string): Promise<any[]> {
+    try {
+        // 全プレイヤーとルーム情報を取得
+        const { data: room } = await supabase
+            .from('game_rooms')
+            .select('*')
+            .eq('id', roomId)
+            .single();
+
+        if (!room) return [];
+
+        const players = await getPlayers(roomId);
+        if (players.length === 0) return [];
+
+        // ベット額でソート（昇順）
+        const sortedPlayers = [...players]
+            .filter(p => p.current_bet > 0)
+            .sort((a, b) => a.current_bet - b.current_bet);
+
+        if (sortedPlayers.length === 0) return [];
+
+        const pots: any[] = [];
+        let remainingPlayers = [...sortedPlayers];
+        let potIndex = 0;
+
+        while (remainingPlayers.length > 0) {
+            const minBet = remainingPlayers[0].current_bet;
+            let potAmount = 0;
+            const eligiblePlayerIds: string[] = [];
+
+            // このレベルのポット金額を計算
+            for (const player of sortedPlayers) {
+                if (player.current_bet >= minBet) {
+                    potAmount += minBet;
+                }
+            }
+
+            // 参加可能プレイヤーを決定（フォールド済みを除外）
+            for (const player of remainingPlayers) {
+                if (player.status !== 'folded') {
+                    eligiblePlayerIds.push(player.id);
+                }
+            }
+
+            pots.push({
+                pot_index: potIndex,
+                amount: potAmount,
+                eligible_player_ids: eligiblePlayerIds,
+            });
+
+            // 次のレベルへ
+            remainingPlayers = remainingPlayers.filter(p => p.current_bet > minBet);
+            potIndex++;
+        }
+
+        return pots;
+    } catch (error) {
+        console.error('Error calculating side pots:', error);
+        return [];
+    }
+}
+
+export async function createSidePots(
+    roomId: string,
+    roundNumber: number,
+    pots: any[]
+): Promise<boolean> {
+    try {
+        // 既存のサイドポットを削除
+        await supabase
+            .from('side_pots')
+            .delete()
+            .eq('room_id', roomId)
+            .eq('round_number', roundNumber);
+
+        // 新しいサイドポットを挿入
+        const { error } = await supabase
+            .from('side_pots')
+            .insert(
+                pots.map(pot => ({
+                    room_id: roomId,
+                    round_number: roundNumber,
+                    pot_index: pot.pot_index,
+                    amount: pot.amount,
+                    eligible_player_ids: pot.eligible_player_ids,
+                }))
+            );
+
+        if (error) {
+            console.error('Error creating side pots:', error);
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error creating side pots:', error);
+        return false;
+    }
+}
+
+export async function getSidePots(roomId: string, roundNumber: number): Promise<any[]> {
+    const { data, error } = await supabase
+        .from('side_pots')
+        .select('*')
+        .eq('room_id', roomId)
+        .eq('round_number', roundNumber)
+        .order('pot_index', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching side pots:', error);
+        return [];
+    }
+
+    return data || [];
+}

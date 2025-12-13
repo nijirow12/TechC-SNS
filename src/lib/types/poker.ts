@@ -74,3 +74,19 @@ export interface TransferResponse {
     transfer?: CoinTransfer;
     error?: string;
 }
+
+// サイドポット関連
+export interface SidePot {
+    id: string;
+    room_id: string;
+    round_number: number;
+    pot_index: number; // 0=メインポット, 1,2,...=サイドポット
+    amount: number;
+    eligible_player_ids: string[]; // 参加可能なプレイヤーID配列
+    created_at: string;
+}
+
+export interface PotWinnerSelection {
+    pot_index: number;
+    winner_ids: string[];
+}

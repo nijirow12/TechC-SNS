@@ -208,83 +208,77 @@ export async function getActions(roomId: string, roundNumber?: number): Promise<
     return data as GameAction[];
 }
 
-// リアルタイムサブスクリプション
+// ポーリング方式によるリアルタイム更新
+// WebSocket Realtimeが使えない場合の代替手段
 export function subscribeToRoom(
     roomId: string,
     onRoomUpdate: (room: GameRoom) => void,
     onPlayersUpdate: (players: Player[]) => void,
     onActionUpdate: (action: GameAction) => void
 ) {
-    console.log('🔌 Setting up realtime subscriptions for room:', roomId);
+    console.log('🔄 Setting up polling subscriptions for room:', roomId);
 
-    // ゲームルームの変更を監視
-    const roomChannel = supabase
-        .channel(`room:${roomId}`)
-        .on(
-            'postgres_changes',
-            {
-                event: '*',
-                schema: 'public',
-                table: 'game_rooms',
-                filter: `id=eq.${roomId}`,
-            },
-            (payload) => {
-                console.log('🎮 Room updated:', payload);
-                onRoomUpdate(payload.new as GameRoom);
-            }
-        )
-        .subscribe((status) => {
-            console.log('🎮 Room channel status:', status);
-        });
+    let lastRoomUpdatedAt: string | null = null;
+    let lastActionId: string | null = null;
+    let isActive = true;
 
-    // プレイヤーの変更を監視
-    const playersChannel = supabase
-        .channel(`players:${roomId}`)
-        .on(
-            'postgres_changes',
-            {
-                event: '*',
-                schema: 'public',
-                table: 'players',
-                filter: `room_id=eq.${roomId}`,
-            },
-            async (payload) => {
-                console.log('👥 Players updated:', payload);
-                // プレイヤーリストを再取得
-                const players = await getPlayers(roomId);
-                onPlayersUpdate(players);
-            }
-        )
-        .subscribe((status) => {
-            console.log('👥 Players channel status:', status);
-        });
+    // ルームとプレイヤーの更新をポーリング
+    const pollData = async () => {
+        if (!isActive) return;
 
-    // アクションの変更を監視
-    const actionsChannel = supabase
-        .channel(`actions:${roomId}`)
-        .on(
-            'postgres_changes',
-            {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'game_actions',
-                filter: `room_id=eq.${roomId}`,
-            },
-            (payload) => {
-                console.log('🎯 Action inserted:', payload);
-                onActionUpdate(payload.new as GameAction);
+        try {
+            // ルーム情報を取得
+            const { data: room } = await supabase
+                .from('game_rooms')
+                .select('*')
+                .eq('id', roomId)
+                .single();
+
+            if (room) {
+                // updated_atが変わっていたら更新
+                if (room.updated_at !== lastRoomUpdatedAt) {
+                    lastRoomUpdatedAt = room.updated_at;
+                    console.log('🎮 Room updated (polling)');
+                    onRoomUpdate(room as GameRoom);
+                }
             }
-        )
-        .subscribe((status) => {
-            console.log('🎯 Actions channel status:', status);
-        });
+
+            // プレイヤー情報を取得
+            const players = await getPlayers(roomId);
+            onPlayersUpdate(players);
+
+            // 最新アクションを取得
+            const { data: actions } = await supabase
+                .from('game_actions')
+                .select('*')
+                .eq('room_id', roomId)
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (actions && actions.length > 0) {
+                const latestAction = actions[0];
+                if (latestAction.id !== lastActionId) {
+                    lastActionId = latestAction.id;
+                    console.log('🎯 Action updated (polling)');
+                    onActionUpdate(latestAction as GameAction);
+                }
+            }
+        } catch (error) {
+            console.error('Polling error:', error);
+        }
+    };
+
+    // 初回実行
+    pollData();
+
+    // 2秒間隔でポーリング
+    const intervalId = setInterval(pollData, 2000);
 
     // クリーンアップ関数を返す
     return () => {
-        console.log('🔌 Cleaning up realtime subscriptions for room:', roomId);
-        supabase.removeChannel(roomChannel);
-        supabase.removeChannel(playersChannel);
-        supabase.removeChannel(actionsChannel);
+        console.log('🔄 Cleaning up polling for room:', roomId);
+        isActive = false;
+        clearInterval(intervalId);
     };
 }
 

@@ -27,6 +27,8 @@ export default function RoomPage() {
         const playerId = localStorage.getItem('player_id');
         setCurrentPlayerId(playerId);
 
+        let unsubscribe: (() => void) | null = null;
+
         const initializeRoom = async () => {
             const roomData = await getGameRoom(roomCode);
             if (!roomData) {
@@ -41,17 +43,28 @@ export default function RoomPage() {
             setLoading(false);
 
             // リアルタイムサブスクリプション
-            const unsubscribe = subscribeToRoom(
+            unsubscribe = subscribeToRoom(
                 roomData.id,
-                (updatedRoom) => setRoom(updatedRoom),
-                (updatedPlayers) => setPlayers(updatedPlayers),
-                (action) => console.log('New action:', action)
+                (updatedRoom) => {
+                    console.log('📡 Room state updated');
+                    setRoom(updatedRoom);
+                },
+                (updatedPlayers) => {
+                    console.log('📡 Players state updated');
+                    setPlayers(updatedPlayers);
+                },
+                (action) => console.log('📡 New action:', action)
             );
-
-            return () => unsubscribe();
         };
 
         initializeRoom();
+
+        // クリーンアップ
+        return () => {
+            if (unsubscribe) {
+                unsubscribe();
+            }
+        };
     }, [roomCode]);
 
     const handleDistributePot = async (winnerIds: string[]) => {

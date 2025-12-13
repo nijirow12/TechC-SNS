@@ -215,6 +215,8 @@ export function subscribeToRoom(
     onPlayersUpdate: (players: Player[]) => void,
     onActionUpdate: (action: GameAction) => void
 ) {
+    console.log('🔌 Setting up realtime subscriptions for room:', roomId);
+
     // ゲームルームの変更を監視
     const roomChannel = supabase
         .channel(`room:${roomId}`)
@@ -227,10 +229,13 @@ export function subscribeToRoom(
                 filter: `id=eq.${roomId}`,
             },
             (payload) => {
+                console.log('🎮 Room updated:', payload);
                 onRoomUpdate(payload.new as GameRoom);
             }
         )
-        .subscribe();
+        .subscribe((status) => {
+            console.log('🎮 Room channel status:', status);
+        });
 
     // プレイヤーの変更を監視
     const playersChannel = supabase
@@ -243,13 +248,16 @@ export function subscribeToRoom(
                 table: 'players',
                 filter: `room_id=eq.${roomId}`,
             },
-            async () => {
+            async (payload) => {
+                console.log('👥 Players updated:', payload);
                 // プレイヤーリストを再取得
                 const players = await getPlayers(roomId);
                 onPlayersUpdate(players);
             }
         )
-        .subscribe();
+        .subscribe((status) => {
+            console.log('👥 Players channel status:', status);
+        });
 
     // アクションの変更を監視
     const actionsChannel = supabase
@@ -263,13 +271,17 @@ export function subscribeToRoom(
                 filter: `room_id=eq.${roomId}`,
             },
             (payload) => {
+                console.log('🎯 Action inserted:', payload);
                 onActionUpdate(payload.new as GameAction);
             }
         )
-        .subscribe();
+        .subscribe((status) => {
+            console.log('🎯 Actions channel status:', status);
+        });
 
     // クリーンアップ関数を返す
     return () => {
+        console.log('🔌 Cleaning up realtime subscriptions for room:', roomId);
         supabase.removeChannel(roomChannel);
         supabase.removeChannel(playersChannel);
         supabase.removeChannel(actionsChannel);

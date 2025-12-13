@@ -10,12 +10,14 @@ interface ActionPanelProps {
 }
 
 export default function ActionPanel({ player, room, onActionComplete }: ActionPanelProps) {
-    const [betAmount, setBetAmount] = useState('');
+    const [betAmount, setBetAmount] = useState(room.big_blind || 20);
     const [isProcessing, setIsProcessing] = useState(false);
 
+    const minBet = room.big_blind || 20;
+    const maxBet = player.chips;
+
     const handleBet = async () => {
-        const amount = parseInt(betAmount);
-        if (!amount || amount <= 0 || amount > player.chips) {
+        if (betAmount <= 0 || betAmount > player.chips) {
             alert('無効な金額です');
             return;
         }
@@ -25,12 +27,12 @@ export default function ActionPanel({ player, room, onActionComplete }: ActionPa
             const response = await fetch('/api/actions/bet', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ player_id: player.id, amount }),
+                body: JSON.stringify({ player_id: player.id, amount: betAmount }),
             });
 
             const data = await response.json();
             if (data.success) {
-                setBetAmount('');
+                setBetAmount(minBet);
                 onActionComplete();
             } else {
                 alert(data.error || 'ベットに失敗しました');
@@ -110,6 +112,20 @@ export default function ActionPanel({ player, room, onActionComplete }: ActionPa
         }
     };
 
+    // クイックベット金額を設定
+    const setQuickBet = (percentage: number) => {
+        const amount = Math.floor(player.chips * percentage);
+        setBetAmount(Math.max(minBet, amount));
+    };
+
+    // 金額調整
+    const adjustBet = (delta: number) => {
+        const newAmount = betAmount + delta;
+        if (newAmount >= minBet && newAmount <= maxBet) {
+            setBetAmount(newAmount);
+        }
+    };
+
     if (player.status === 'folded') {
         return (
             <div className="max-w-6xl mx-auto">
@@ -135,28 +151,83 @@ export default function ActionPanel({ player, room, onActionComplete }: ActionPa
             <div className="p-6 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700">
                 <h3 className="text-lg font-semibold mb-4 text-emerald-400">あなたのアクション</h3>
 
-                {/* ベット入力 */}
-                <div className="mb-4">
-                    <div className="flex gap-2">
+                {/* ベット入力セクション */}
+                <div className="mb-4 p-4 bg-slate-900/50 rounded-xl border border-slate-600">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-slate-400 text-sm">ベット額</span>
+                        <span className="text-slate-400 text-sm">残り: <span className="text-emerald-400 font-semibold">{player.chips}</span></span>
+                    </div>
+
+                    {/* 金額表示と調整ボタン */}
+                    <div className="flex items-center gap-2 mb-3">
+                        <button
+                            onClick={() => adjustBet(-minBet)}
+                            disabled={isProcessing || betAmount <= minBet}
+                            className="w-12 h-12 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-white text-xl font-bold rounded-lg transition-all"
+                        >
+                            −
+                        </button>
                         <input
                             type="number"
                             value={betAmount}
-                            onChange={(e) => setBetAmount(e.target.value)}
-                            placeholder="ベット額"
-                            min="1"
-                            max={player.chips}
-                            className="flex-1 px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-white"
+                            onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                setBetAmount(Math.min(Math.max(val, 0), maxBet));
+                            }}
+                            min={minBet}
+                            max={maxBet}
+                            className="flex-1 px-4 py-3 bg-slate-800 border border-slate-500 rounded-lg text-center text-2xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                             disabled={isProcessing}
                         />
                         <button
-                            onClick={handleBet}
-                            disabled={isProcessing || !betAmount}
-                            className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-semibold rounded-lg transition-all disabled:cursor-not-allowed"
+                            onClick={() => adjustBet(minBet)}
+                            disabled={isProcessing || betAmount >= maxBet}
+                            className="w-12 h-12 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 text-white text-xl font-bold rounded-lg transition-all"
                         >
-                            ベット
+                            +
                         </button>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">残りチップ: {player.chips}</p>
+
+                    {/* クイックベットボタン */}
+                    <div className="grid grid-cols-4 gap-2 mb-3">
+                        <button
+                            onClick={() => setQuickBet(0.25)}
+                            disabled={isProcessing}
+                            className="py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-white text-sm font-medium rounded-lg transition-all"
+                        >
+                            25%
+                        </button>
+                        <button
+                            onClick={() => setQuickBet(0.5)}
+                            disabled={isProcessing}
+                            className="py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-white text-sm font-medium rounded-lg transition-all"
+                        >
+                            50%
+                        </button>
+                        <button
+                            onClick={() => setQuickBet(0.75)}
+                            disabled={isProcessing}
+                            className="py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-white text-sm font-medium rounded-lg transition-all"
+                        >
+                            75%
+                        </button>
+                        <button
+                            onClick={() => setBetAmount(maxBet)}
+                            disabled={isProcessing}
+                            className="py-2 bg-yellow-600 hover:bg-yellow-500 disabled:bg-slate-800 text-white text-sm font-medium rounded-lg transition-all"
+                        >
+                            MAX
+                        </button>
+                    </div>
+
+                    {/* ベットボタン */}
+                    <button
+                        onClick={handleBet}
+                        disabled={isProcessing || betAmount <= 0 || betAmount > maxBet}
+                        className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-bold text-lg rounded-lg transition-all disabled:cursor-not-allowed"
+                    >
+                        {betAmount} チップをベット
+                    </button>
                 </div>
 
                 {/* クイックアクション */}

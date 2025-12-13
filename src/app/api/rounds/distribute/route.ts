@@ -93,29 +93,36 @@ export async function POST(request: NextRequest) {
         const maxPlayers = typedRoom.max_players || 6;
         const nextDealerPosition = (typedRoom.dealer_position + 1) % maxPlayers;
 
-        // SB/BBポジションを自動的に次のプレイヤーに移動
+        // SB/BBポジションを自動的に次のプレイヤーに移動（チップ0のプレイヤーはスキップ）
         let nextSbPosition = null;
         let nextBbPosition = null;
 
-        if (typedRoom.sb_position !== null && typedRoom.bb_position !== null) {
-            // 現在のSBポジションから次のアクティブなプレイヤーを探す
-            const activePlayers = players.filter(p => p.status !== 'folded');
-            const activePositions = activePlayers.map(p => p.position).sort((a, b) => a - b);
+        // チップが0より大きいアクティブプレイヤーのみを対象
+        const eligiblePlayers = players.filter(p => p.chips > 0);
+        const eligiblePositions = eligiblePlayers.map(p => p.position).sort((a, b) => a - b);
 
-            if (activePositions.length >= 2) {
-                // ディーラーの次のプレイヤーをSBに
-                const dealerIndex = activePositions.indexOf(nextDealerPosition);
-                if (dealerIndex !== -1) {
-                    nextSbPosition = activePositions[(dealerIndex + 1) % activePositions.length];
-                    nextBbPosition = activePositions[(dealerIndex + 2) % activePositions.length];
-                } else {
-                    // ディーラーがアクティブプレイヤーにいない場合、最初の2人を使用
-                    nextSbPosition = activePositions[0];
-                    nextBbPosition = activePositions[1];
+        if (eligiblePositions.length >= 2) {
+            // ディーラーポジションから次のプレイヤーを探す
+            let sbIndex = -1;
+            let bbIndex = -1;
+
+            // ディーラーの次のポジションを探す（チップがあるプレイヤー）
+            for (let i = 1; i <= maxPlayers; i++) {
+                const candidatePos = (nextDealerPosition + i) % maxPlayers;
+                if (eligiblePositions.includes(candidatePos)) {
+                    if (sbIndex === -1) {
+                        sbIndex = eligiblePositions.indexOf(candidatePos);
+                        nextSbPosition = candidatePos;
+                    } else if (bbIndex === -1) {
+                        bbIndex = eligiblePositions.indexOf(candidatePos);
+                        nextBbPosition = candidatePos;
+                        break;
+                    }
                 }
             }
         }
 
+        // ルーム情報を更新
         await updateGameRoom(room_id, {
             current_pot: 0,
             current_round: typedRoom.current_round + 1,
@@ -123,6 +130,33 @@ export async function POST(request: NextRequest) {
             sb_position: nextSbPosition,
             bb_position: nextBbPosition,
         });
+
+        // 新しいラウンドのブラインドを自動徴収
+        if (nextSbPosition !== null && nextBbPosition !== null) {
+            const sbPlayer = players.find(p => p.position === nextSbPosition);
+            const bbPlayer = players.find(p => p.position === nextBbPosition);
+
+            if (sbPlayer && bbPlayer) {
+                // SBを徴収（残高が不足している場合はオールイン）
+                const sbAmount = Math.min(sbPlayer.chips, typedRoom.small_blind);
+                await updatePlayer(sbPlayer.id, {
+                    chips: sbPlayer.chips - sbAmount,
+                    current_bet: sbAmount,
+                });
+
+                // BBを徴収（残高が不足している場合はオールイン）
+                const bbAmount = Math.min(bbPlayer.chips, typedRoom.big_blind);
+                await updatePlayer(bbPlayer.id, {
+                    chips: bbPlayer.chips - bbAmount,
+                    current_bet: bbAmount,
+                });
+
+                // ポットに追加
+                await updateGameRoom(room_id, {
+                    current_pot: sbAmount + bbAmount,
+                });
+            }
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {

@@ -1,7 +1,8 @@
--- ポーカーコイン管理システム - データベーススキーマ
--- Supabase PostgreSQL
+-- ポーカーコイン管理システム - 完全再構築用SQL
+-- 警告: このスクリプトは既存のポーカーデータを全て削除します
 
 -- 既存のテーブルを削除（クリーンスタート）
+DROP TABLE IF EXISTS coin_transfers CASCADE;
 DROP TABLE IF EXISTS game_actions CASCADE;
 DROP TABLE IF EXISTS players CASCADE;
 DROP TABLE IF EXISTS game_rooms CASCADE;
@@ -107,6 +108,10 @@ CREATE POLICY "Anyone can read game_actions"
     ON game_actions FOR SELECT
     USING (true);
 
+CREATE POLICY "Anyone can read coin_transfers"
+    ON coin_transfers FOR SELECT
+    USING (true);
+
 -- 全てのユーザーが挿入可能なポリシー
 CREATE POLICY "Anyone can insert game_rooms"
     ON game_rooms FOR INSERT
@@ -120,6 +125,10 @@ CREATE POLICY "Anyone can insert game_actions"
     ON game_actions FOR INSERT
     WITH CHECK (true);
 
+CREATE POLICY "Anyone can insert coin_transfers"
+    ON coin_transfers FOR INSERT
+    WITH CHECK (true);
+
 -- 全てのユーザーが更新可能なポリシー
 CREATE POLICY "Anyone can update game_rooms"
     ON game_rooms FOR UPDATE
@@ -128,16 +137,3 @@ CREATE POLICY "Anyone can update game_rooms"
 CREATE POLICY "Anyone can update players"
     ON players FOR UPDATE
     USING (true);
-
--- 全てのユーザーがコイン譲渡を読み取り可能なポリシー
-CREATE POLICY "Anyone can read coin_transfers"
-    ON coin_transfers FOR SELECT
-    USING (true);
-
--- 全てのユーザーがコイン譲渡を挿入可能なポリシー
-CREATE POLICY "Anyone can insert coin_transfers"
-    ON coin_transfers FOR INSERT
-    WITH CHECK (true);
-
--- テスト用のサンプルデータ挿入（オプション）
--- INSERT INTO game_rooms (room_code, status) VALUES ('ABC123', 'waiting');

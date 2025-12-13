@@ -9,7 +9,6 @@ import ActionPanel from '@/components/poker/ActionPanel';
 import PotDisplay from '@/components/poker/PotDisplay';
 
 import WinnerSelector from '@/components/poker/WinnerSelector';
-import BlindSelector from '@/components/poker/BlindSelector';
 import CoinTransfer from '@/components/poker/CoinTransfer';
 
 export default function RoomPage() {
@@ -147,14 +146,36 @@ export default function RoomPage() {
                 </div>
             </div>
 
-            {/* ブラインド選択（ゲーム開始前のみ） */}
+            {/* ゲーム開始ボタン（waiting状態のみ） */}
             {room.status === 'waiting' && (
-                <BlindSelector
-                    players={players}
-                    roomId={room.id}
-                    onBlindsSet={() => { }}
-                    onStartGame={() => { }}
-                />
+                <div className="max-w-6xl mx-auto mb-6">
+                    <div className="p-6 bg-gradient-to-br from-emerald-900/30 to-teal-900/30 backdrop-blur-sm rounded-2xl border border-emerald-500/30">
+                        <h3 className="text-xl font-bold mb-4 text-emerald-300">🎮 ゲーム開始</h3>
+                        <p className="text-sm text-slate-300 mb-4">
+                            準備ができたらゲームを開始してください。座席1と2のプレイヤーが自動的にSB/BBになります。
+                        </p>
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const response = await fetch('/api/blinds/collect', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ room_id: room.id }),
+                                    });
+                                    const data = await response.json();
+                                    if (!data.success) {
+                                        alert(data.error || 'ゲーム開始に失敗しました');
+                                    }
+                                } catch (err) {
+                                    alert('サーバーエラーが発生しました');
+                                }
+                            }}
+                            className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-lg rounded-xl transition-all duration-200 shadow-lg"
+                        >
+                            🎮 ゲーム開始！
+                        </button>
+                    </div>
+                </div>
             )}
 
             {/* アクションパネル */}

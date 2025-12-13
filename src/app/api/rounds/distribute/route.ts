@@ -93,32 +93,43 @@ export async function POST(request: NextRequest) {
         const maxPlayers = typedRoom.max_players || 6;
         const nextDealerPosition = (typedRoom.dealer_position + 1) % maxPlayers;
 
-        // SB/BBポジションを自動的に次のプレイヤーに移動（チップ0のプレイヤーはスキップ）
+        // SB/BBポジションを座席順で次に移動（チップ0のプレイヤーはスキップ）
         let nextSbPosition = null;
         let nextBbPosition = null;
 
-        // チップが0より大きいアクティブプレイヤーのみを対象
+        // チップが0より大きいプレイヤーのみを対象
         const eligiblePlayers = players.filter(p => p.chips > 0);
-        const eligiblePositions = eligiblePlayers.map(p => p.position).sort((a, b) => a - b);
 
-        if (eligiblePositions.length >= 2) {
-            // ディーラーポジションから次のプレイヤーを探す
-            let sbIndex = -1;
-            let bbIndex = -1;
+        if (eligiblePlayers.length >= 2) {
+            // 現在のSBポジションから次のプレイヤーを探す（座席順）
+            const currentSbPos = typedRoom.sb_position;
+            const currentBbPos = typedRoom.bb_position;
 
-            // ディーラーの次のポジションを探す（チップがあるプレイヤー）
-            for (let i = 1; i <= maxPlayers; i++) {
-                const candidatePos = (nextDealerPosition + i) % maxPlayers;
-                if (eligiblePositions.includes(candidatePos)) {
-                    if (sbIndex === -1) {
-                        sbIndex = eligiblePositions.indexOf(candidatePos);
-                        nextSbPosition = candidatePos;
-                    } else if (bbIndex === -1) {
-                        bbIndex = eligiblePositions.indexOf(candidatePos);
-                        nextBbPosition = candidatePos;
-                        break;
+            if (currentSbPos !== null && currentBbPos !== null) {
+                // 現在のSBの次のポジションから探す
+                let foundSb = false;
+                let foundBb = false;
+
+                // 座席順に次のプレイヤーを探す
+                for (let i = 1; i <= maxPlayers && (!foundSb || !foundBb); i++) {
+                    const candidatePos = (currentSbPos + i) % maxPlayers;
+                    const candidatePlayer = eligiblePlayers.find(p => p.position === candidatePos);
+
+                    if (candidatePlayer) {
+                        if (!foundSb) {
+                            nextSbPosition = candidatePos;
+                            foundSb = true;
+                        } else if (!foundBb) {
+                            nextBbPosition = candidatePos;
+                            foundBb = true;
+                        }
                     }
                 }
+            } else {
+                // 初回の場合は座席順で最初の2人
+                const sortedEligible = eligiblePlayers.sort((a, b) => a.position - b.position);
+                nextSbPosition = sortedEligible[0].position;
+                nextBbPosition = sortedEligible[1].position;
             }
         }
 

@@ -8,6 +8,10 @@ import PlayerCard from '@/components/poker/PlayerCard';
 import ActionPanel from '@/components/poker/ActionPanel';
 import PotDisplay from '@/components/poker/PotDisplay';
 
+import WinnerSelector from '@/components/poker/WinnerSelector';
+import BlindSelector from '@/components/poker/BlindSelector';
+import CoinTransfer from '@/components/poker/CoinTransfer';
+
 export default function RoomPage() {
     const params = useParams();
     const router = useRouter();
@@ -51,14 +55,14 @@ export default function RoomPage() {
         initializeRoom();
     }, [roomCode]);
 
-    const handleDistributePot = async (winnerId: string) => {
+    const handleDistributePot = async (winnerIds: string[]) => {
         if (!room) return;
 
         try {
             const response = await fetch('/api/rounds/distribute', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: room.id, winner_id: winnerId }),
+                body: JSON.stringify({ room_id: room.id, winner_ids: winnerIds }),
             });
 
             const data = await response.json();
@@ -126,7 +130,7 @@ export default function RoomPage() {
             {/* プレイヤーグリッド */}
             <div className="max-w-6xl mx-auto mb-6">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {Array.from({ length: 6 }).map((_, index) => {
+                    {Array.from({ length: room.max_players }).map((_, index) => {
                         const player = players.find(p => p.position === index);
                         return (
                             <PlayerCard
@@ -135,11 +139,23 @@ export default function RoomPage() {
                                 position={index}
                                 isDealer={room.dealer_position === index}
                                 isCurrentPlayer={player?.id === currentPlayerId}
+                                sbPosition={room.sb_position}
+                                bbPosition={room.bb_position}
                             />
                         );
                     })}
                 </div>
             </div>
+
+            {/* ブラインド選択（ゲーム開始前のみ） */}
+            {room.status === 'waiting' && (
+                <BlindSelector
+                    players={players}
+                    roomId={room.id}
+                    onBlindsSet={() => { }}
+                    onStartGame={() => { }}
+                />
+            )}
 
             {/* アクションパネル */}
             {currentPlayer && (
@@ -150,33 +166,38 @@ export default function RoomPage() {
                 />
             )}
 
-            {/* ラウンド管理（全プレイヤーが見える） */}
+            {/* ラウンド管理 */}
             <div className="max-w-6xl mx-auto mt-6">
                 <div className="p-6 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700">
                     <h3 className="text-lg font-semibold mb-4 text-teal-400">ラウンド管理</h3>
                     <button
-                        onClick={() => setShowWinnerSelect(!showWinnerSelect)}
+                        onClick={() => setShowWinnerSelect(true)}
                         className="w-full py-3 px-6 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg"
                     >
-                        {showWinnerSelect ? 'キャンセル' : 'ラウンド終了 - 勝者を選択'}
+                        🏆 ラウンド終了 - 勝者を選択
                     </button>
-
-                    {showWinnerSelect && (
-                        <div className="mt-4 space-y-2">
-                            <p className="text-sm text-slate-400 mb-2">勝者を選択してください:</p>
-                            {players.filter(p => p.status !== 'folded').map(player => (
-                                <button
-                                    key={player.id}
-                                    onClick={() => handleDistributePot(player.id)}
-                                    className="w-full py-2 px-4 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors text-left"
-                                >
-                                    {player.nickname} (座席 {player.position + 1})
-                                </button>
-                            ))}
-                        </div>
-                    )}
                 </div>
             </div>
+
+            {/* 勝者選択モーダル */}
+            {showWinnerSelect && (
+                <WinnerSelector
+                    players={players}
+                    pot={room.current_pot}
+                    dealerPosition={room.dealer_position}
+                    onSelectWinners={handleDistributePot}
+                    onCancel={() => setShowWinnerSelect(false)}
+                />
+            )}
+
+            {/* コイン譲渡 */}
+            {currentPlayer && currentPlayerId && (
+                <CoinTransfer
+                    players={players}
+                    currentPlayerId={currentPlayerId}
+                    roomId={room.id}
+                />
+            )}
         </div>
     );
 }

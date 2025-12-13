@@ -11,6 +11,11 @@ export interface GameRoom {
     current_pot: number;
     current_round: number;
     dealer_position: number;
+    small_blind: number;
+    big_blind: number;
+    sb_position: number | null;
+    bb_position: number | null;
+    max_players: number;
     created_at: string;
     updated_at: string;
 }
@@ -37,6 +42,15 @@ export interface GameAction {
     created_at: string;
 }
 
+export interface CoinTransfer {
+    id: string;
+    room_id: string;
+    from_player_id: string;
+    to_player_id: string;
+    amount: number;
+    created_at: string;
+}
+
 // APIレスポンス型
 export interface CreateRoomResponse {
     success: boolean;
@@ -52,5 +66,11 @@ export interface JoinRoomResponse {
 
 export interface ActionResponse {
     success: boolean;
+    error?: string;
+}
+
+export interface TransferResponse {
+    success: boolean;
+    transfer?: CoinTransfer;
     error?: string;
 }

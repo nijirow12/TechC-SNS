@@ -135,15 +135,23 @@ export async function updatePlayer(
 }
 
 export async function getNextAvailablePosition(roomId: string): Promise<number | null> {
+    // Get room to check max_players
+    const { data: room } = await supabase
+        .from('game_rooms')
+        .select('max_players')
+        .eq('id', roomId)
+        .single();
+
+    const maxPlayers = room?.max_players || 6;
     const players = await getPlayers(roomId);
 
-    if (players.length >= 6) {
+    if (players.length >= maxPlayers) {
         return null; // ルームが満員
     }
 
     const occupiedPositions = new Set(players.map(p => p.position));
 
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < maxPlayers; i++) {
         if (!occupiedPositions.has(i)) {
             return i;
         }
@@ -267,3 +275,138 @@ export function subscribeToRoom(
         supabase.removeChannel(actionsChannel);
     };
 }
+
+// ブラインド関連
+export async function setBlinds(
+    roomId: string,
+    sbPosition: number,
+    bbPosition: number
+): Promise<boolean> {
+    const { error } = await supabase
+        .from('game_rooms')
+        .update({
+            sb_position: sbPosition,
+            bb_position: bbPosition,
+        })
+        .eq('id', roomId);
+
+    if (error) {
+        console.error('Error setting blinds:', error);
+        return false;
+    }
+
+    return true;
+}
+
+export async function collectBlinds(roomId: string): Promise<boolean> {
+    try {
+        // Get room and players
+        const { data: room } = await supabase
+            .from('game_rooms')
+            .select('*')
+            .eq('id', roomId)
+            .single();
+
+        if (!room || room.sb_position === null || room.bb_position === null) {
+            return false;
+        }
+
+        const players = await getPlayers(roomId);
+        const sbPlayer = players.find(p => p.position === room.sb_position);
+        const bbPlayer = players.find(p => p.position === room.bb_position);
+
+        if (!sbPlayer || !bbPlayer) {
+            return false;
+        }
+
+        // Deduct blinds from players
+        await updatePlayer(sbPlayer.id, {
+            chips: sbPlayer.chips - room.small_blind,
+            current_bet: room.small_blind,
+        });
+
+        await updatePlayer(bbPlayer.id, {
+            chips: bbPlayer.chips - room.big_blind,
+            current_bet: room.big_blind,
+        });
+
+        // Add to pot
+        await updateGameRoom(roomId, {
+            current_pot: room.small_blind + room.big_blind,
+        });
+
+        return true;
+    } catch (error) {
+        console.error('Error collecting blinds:', error);
+        return false;
+    }
+}
+
+// コイン譲渡関連
+export async function transferCoins(
+    roomId: string,
+    fromPlayerId: string,
+    toPlayerId: string,
+    amount: number
+): Promise<any> {
+    try {
+        const players = await getPlayers(roomId);
+        const fromPlayer = players.find(p => p.id === fromPlayerId);
+        const toPlayer = players.find(p => p.id === toPlayerId);
+
+        if (!fromPlayer || !toPlayer) {
+            return null;
+        }
+
+        if (fromPlayer.chips < amount) {
+            return null;
+        }
+
+        // Update player chips
+        await updatePlayer(fromPlayerId, {
+            chips: fromPlayer.chips - amount,
+        });
+
+        await updatePlayer(toPlayerId, {
+            chips: toPlayer.chips + amount,
+        });
+
+        // Record transfer
+        const { data, error } = await supabase
+            .from('coin_transfers')
+            .insert({
+                room_id: roomId,
+                from_player_id: fromPlayerId,
+                to_player_id: toPlayerId,
+                amount,
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error recording transfer:', error);
+            return null;
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Error transferring coins:', error);
+        return null;
+    }
+}
+
+export async function getCoinTransfers(roomId: string): Promise<any[]> {
+    const { data, error } = await supabase
+        .from('coin_transfers')
+        .select('*')
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching coin transfers:', error);
+        return [];
+    }
+
+    return data || [];
+}
+

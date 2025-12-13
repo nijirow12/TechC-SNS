@@ -4,11 +4,12 @@ import type { Player, GameRoom } from '@/lib/types/poker';
 
 export async function POST(request: NextRequest) {
     try {
-        const { room_id, winner_id } = await request.json();
+        const { room_id, winner_ids } = await request.json();
 
-        if (!room_id || !winner_id) {
+        // バリデーション
+        if (!room_id || !winner_ids || !Array.isArray(winner_ids) || winner_ids.length === 0) {
             return NextResponse.json(
-                { success: false, error: 'ルームIDと勝者IDが必要です' },
+                { success: false, error: 'ルームIDと勝者ID（配列）が必要です' },
                 { status: 400 }
             );
         }
@@ -29,41 +30,71 @@ export async function POST(request: NextRequest) {
 
         const typedRoom = room as GameRoom;
 
-        // 勝者情報を取得
-        const { data: winner, error: winnerError } = await supabase
-            .from('players')
-            .select('*')
-            .eq('id', winner_id)
-            .single();
+        // 全プレイヤーを取得
+        const players = await getPlayers(room_id);
 
-        if (winnerError || !winner) {
-            return NextResponse.json(
-                { success: false, error: '勝者が見つかりません' },
-                { status: 404 }
-            );
+        // 勝者の検証
+        const winners: Player[] = [];
+        for (const winnerId of winner_ids) {
+            const winner = players.find(p => p.id === winnerId);
+            if (!winner) {
+                return NextResponse.json(
+                    { success: false, error: `勝者が見つかりません: ${winnerId}` },
+                    { status: 404 }
+                );
+            }
+            if (winner.status === 'folded') {
+                return NextResponse.json(
+                    { success: false, error: `フォールド済みのプレイヤーは勝者にできません: ${winner.nickname}` },
+                    { status: 400 }
+                );
+            }
+            winners.push(winner);
         }
 
-        const typedWinner = winner as Player;
+        // ポット分割計算
+        const pot = typedRoom.current_pot;
+        const winnerCount = winners.length;
+        const baseAmount = Math.floor(pot / winnerCount);
+        const remainder = pot % winnerCount;
 
-        // ポットを勝者に配分
-        await updatePlayer(winner_id, {
-            chips: typedWinner.chips + typedRoom.current_pot,
+        // ディーラーに近い順にソート（position順）
+        const sortedWinners = [...winners].sort((a, b) => {
+            const dealerPos = typedRoom.dealer_position;
+            const distA = (a.position - dealerPos + 6) % 6;
+            const distB = (b.position - dealerPos + 6) % 6;
+            return distA - distB;
         });
 
         // 全プレイヤーのベット額とステータスをリセット
-        const players = await getPlayers(room_id);
         for (const player of players) {
-            await updatePlayer(player.id, {
-                current_bet: 0,
-                status: 'active',
-            });
+            const winnerIndex = sortedWinners.findIndex(w => w.id === player.id);
+
+            if (winnerIndex !== -1) {
+                // 勝者：ポットの分配額を追加
+                const extraChip = winnerIndex < remainder ? 1 : 0;
+                const winAmount = baseAmount + extraChip;
+
+                await updatePlayer(player.id, {
+                    chips: player.chips + winAmount,
+                    current_bet: 0,
+                    status: 'active',
+                });
+            } else {
+                // 他のプレイヤー：ベット額とステータスのみリセット
+                await updatePlayer(player.id, {
+                    current_bet: 0,
+                    status: 'active',
+                });
+            }
         }
 
         // ゲームルームをリセット（新しいラウンド）
+        const maxPlayers = typedRoom.max_players || 6;
         await updateGameRoom(room_id, {
             current_pot: 0,
             current_round: typedRoom.current_round + 1,
-            dealer_position: (typedRoom.dealer_position + 1) % 6,
+            dealer_position: (typedRoom.dealer_position + 1) % maxPlayers,
         });
 
         return NextResponse.json({ success: true });

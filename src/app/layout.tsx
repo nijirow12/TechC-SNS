@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 export const metadata: Metadata = {
-    title: "TechC SNS - Connect, Share, Innovate",
-    description: "A modern social networking platform for tech enthusiasts",
-    keywords: ["social network", "tech", "community", "innovation"],
+    title: "ポーカーコイン管理 - Poker Chip Manager",
+    description: "リアルタイムでポーカーのコイン処理ができるWebアプリケーション",
+    keywords: ["poker", "chip manager", "real-time", "game"],
 };
 
 export default function RootLayout({
@@ -14,14 +13,10 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <ClerkProvider>
-            <html lang="ja">
-                <body className="bg-background text-foreground antialiased min-h-screen flex flex-col items-center">
-                    <main className="w-full max-w-md flex-1 border-x border-border min-h-screen bg-card shadow-sm">
-                        {children}
-                    </main>
-                </body>
-            </html>
-        </ClerkProvider>
+        <html lang="ja">
+            <body className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white antialiased min-h-screen">
+                {children}
+            </body>
+        </html>
     );
 }

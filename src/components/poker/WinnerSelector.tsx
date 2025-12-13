@@ -14,6 +14,7 @@ interface WinnerSelectorProps {
 export default function WinnerSelector({ players, pot, dealerPosition, onSelectWinners, onCancel }: WinnerSelectorProps) {
     const activePlayers = players.filter(p => p.status !== 'folded');
     const [selectedWinners, setSelectedWinners] = useState<Set<string>>(new Set());
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const toggleWinner = (playerId: string) => {
         const newSelected = new Set(selectedWinners);
@@ -25,12 +26,14 @@ export default function WinnerSelector({ players, pot, dealerPosition, onSelectW
         setSelectedWinners(newSelected);
     };
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         if (selectedWinners.size === 0) {
             alert('少なくとも1人の勝者を選択してください');
             return;
         }
-        onSelectWinners(Array.from(selectedWinners));
+        setIsProcessing(true);
+        await onSelectWinners(Array.from(selectedWinners));
+        setIsProcessing(false);
     };
 
     // 各勝者が受け取る額を計算
@@ -85,16 +88,16 @@ export default function WinnerSelector({ players, pot, dealerPosition, onSelectW
                                     key={player.id}
                                     onClick={() => toggleWinner(player.id)}
                                     className={`w-full p-4 rounded-xl transition-all duration-200 text-left border-2 ${isSelected
-                                            ? 'bg-gradient-to-r from-emerald-600 to-teal-600 border-emerald-500'
-                                            : 'bg-slate-700/50 hover:bg-slate-700 border-transparent hover:border-slate-600'
+                                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 border-emerald-500'
+                                        : 'bg-slate-700/50 hover:bg-slate-700 border-transparent hover:border-slate-600'
                                         }`}
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3 flex-1">
                                             {/* チェックボックス */}
                                             <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${isSelected
-                                                    ? 'bg-white border-white'
-                                                    : 'bg-slate-600 border-slate-500'
+                                                ? 'bg-white border-white'
+                                                : 'bg-slate-600 border-slate-500'
                                                 }`}>
                                                 {isSelected && (
                                                     <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,8 +112,8 @@ export default function WinnerSelector({ players, pot, dealerPosition, onSelectW
                                                         {player.nickname}
                                                     </span>
                                                     <span className={`px-2 py-0.5 text-xs rounded ${isSelected
-                                                            ? 'bg-emerald-700 text-white'
-                                                            : 'bg-slate-600 text-slate-300'
+                                                        ? 'bg-emerald-700 text-white'
+                                                        : 'bg-slate-600 text-slate-300'
                                                         }`}>
                                                         座席 {player.position + 1}
                                                     </span>
@@ -138,17 +141,25 @@ export default function WinnerSelector({ players, pot, dealerPosition, onSelectW
                 <div className="p-4 border-t border-slate-700 space-y-2">
                     <button
                         onClick={handleConfirm}
-                        disabled={selectedWinners.size === 0}
-                        className={`w-full py-3 px-6 font-semibold rounded-xl transition-all duration-200 ${selectedWinners.size > 0
-                                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg'
-                                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                        disabled={selectedWinners.size === 0 || isProcessing}
+                        className={`w-full py-3 px-6 font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 ${selectedWinners.size > 0 && !isProcessing
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg'
+                            : 'bg-slate-700 text-slate-500 cursor-not-allowed'
                             }`}
                     >
-                        {selectedWinners.size > 0 ? `決定（${selectedWinners.size}人）` : '勝者を選択してください'}
+                        {isProcessing ? (
+                            <>
+                                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                                <span>配分中...</span>
+                            </>
+                        ) : (
+                            selectedWinners.size > 0 ? `決定（${selectedWinners.size}人）` : '勝者を選択してください'
+                        )}
                     </button>
                     <button
                         onClick={onCancel}
-                        className="w-full py-3 px-6 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl transition-all duration-200"
+                        disabled={isProcessing}
+                        className="w-full py-3 px-6 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-white font-semibold rounded-xl transition-all duration-200 disabled:cursor-not-allowed"
                     >
                         キャンセル
                     </button>

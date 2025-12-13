@@ -122,9 +122,16 @@ export default function BlindSelector({ players, roomId, onBlindsSet, onStartGam
                         <button
                             onClick={handleSetBlinds}
                             disabled={isProcessing || sbPosition === null || bbPosition === null}
-                            className="w-full py-3 px-6 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg disabled:cursor-not-allowed"
+                            className="w-full py-3 px-6 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            ブラインドを設定
+                            {isProcessing ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                                    <span>設定中...</span>
+                                </>
+                            ) : (
+                                'ブラインドを設定'
+                            )}
                         </button>
                     </>
                 ) : (
@@ -135,9 +142,16 @@ export default function BlindSelector({ players, roomId, onBlindsSet, onStartGam
                         <button
                             onClick={handleStartGame}
                             disabled={isProcessing}
-                            className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-bold text-lg rounded-xl transition-all duration-200 shadow-lg disabled:cursor-not-allowed"
+                            className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-bold text-lg rounded-xl transition-all duration-200 shadow-lg disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            🎮 ゲーム開始！
+                            {isProcessing ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
+                                    <span>ゲーム開始中...</span>
+                                </>
+                            ) : (
+                                '🎮 ゲーム開始！'
+                            )}
                         </button>
                     </>
                 )}

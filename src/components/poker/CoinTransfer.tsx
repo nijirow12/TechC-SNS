@@ -131,9 +131,16 @@ export default function CoinTransfer({ players, currentPlayerId, roomId }: CoinT
                             <button
                                 onClick={handleTransfer}
                                 disabled={isProcessing || !toPlayerId || !amount}
-                                className="w-full py-2 px-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-semibold rounded-lg transition-all disabled:cursor-not-allowed text-sm"
+                                className="w-full py-2 px-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-semibold rounded-lg transition-all disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"
                             >
-                                譲渡
+                                {isProcessing ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                                        <span>送信中...</span>
+                                    </>
+                                ) : (
+                                    '譲渡'
+                                )}
                             </button>
                         </div>
                     </div>

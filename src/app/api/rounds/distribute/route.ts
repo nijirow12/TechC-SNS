@@ -91,10 +91,37 @@ export async function POST(request: NextRequest) {
 
         // ゲームルームをリセット（新しいラウンド）
         const maxPlayers = typedRoom.max_players || 6;
+        const nextDealerPosition = (typedRoom.dealer_position + 1) % maxPlayers;
+
+        // SB/BBポジションを自動的に次のプレイヤーに移動
+        let nextSbPosition = null;
+        let nextBbPosition = null;
+
+        if (typedRoom.sb_position !== null && typedRoom.bb_position !== null) {
+            // 現在のSBポジションから次のアクティブなプレイヤーを探す
+            const activePlayers = players.filter(p => p.status !== 'folded');
+            const activePositions = activePlayers.map(p => p.position).sort((a, b) => a - b);
+
+            if (activePositions.length >= 2) {
+                // ディーラーの次のプレイヤーをSBに
+                const dealerIndex = activePositions.indexOf(nextDealerPosition);
+                if (dealerIndex !== -1) {
+                    nextSbPosition = activePositions[(dealerIndex + 1) % activePositions.length];
+                    nextBbPosition = activePositions[(dealerIndex + 2) % activePositions.length];
+                } else {
+                    // ディーラーがアクティブプレイヤーにいない場合、最初の2人を使用
+                    nextSbPosition = activePositions[0];
+                    nextBbPosition = activePositions[1];
+                }
+            }
+        }
+
         await updateGameRoom(room_id, {
             current_pot: 0,
             current_round: typedRoom.current_round + 1,
-            dealer_position: (typedRoom.dealer_position + 1) % maxPlayers,
+            dealer_position: nextDealerPosition,
+            sb_position: nextSbPosition,
+            bb_position: nextBbPosition,
         });
 
         return NextResponse.json({ success: true });

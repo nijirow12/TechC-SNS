@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase, getGameRoom, getPlayers, subscribeToRoom, calculateSidePots, getSidePots } from '@/lib/supabase/poker';
+import { supabase, getGameRoom, getPlayers, subscribeToRoom, calculateSidePots, getSidePots, createSidePots } from '@/lib/supabase/poker';
 import type { GameRoom, Player, GameAction, SidePot, PotWinnerSelection } from '@/lib/types/poker';
 import PlayerCard from '@/components/poker/PlayerCard';
 import ActionPanel from '@/components/poker/ActionPanel';
@@ -72,6 +72,14 @@ export default function RoomPage() {
         if (!room) return;
 
         const pots = await calculateSidePots(room.id);
+
+        // データベースに保存
+        const saved = await createSidePots(room.id, room.current_round, pots);
+        if (!saved) {
+            alert('サイドポットの作成に失敗しました');
+            return;
+        }
+
         setSidePots(pots);
         setShowWinnerSelect(true);
     };

@@ -439,20 +439,19 @@ export async function calculateSidePots(roomId: string): Promise<any[]> {
         if (sortedPlayers.length === 0) return [];
 
         const pots: any[] = [];
+        let previousLevel = 0; // 前のレベルのベット額
         let remainingPlayers = [...sortedPlayers];
         let potIndex = 0;
 
         while (remainingPlayers.length > 0) {
-            const minBet = remainingPlayers[0].current_bet;
+            const currentLevel = remainingPlayers[0].current_bet;
+            const incrementalBet = currentLevel - previousLevel; // このレベルで追加されるベット額
             let potAmount = 0;
             const eligiblePlayerIds: string[] = [];
 
-            // このレベルのポット金額を計算
-            for (const player of sortedPlayers) {
-                if (player.current_bet >= minBet) {
-                    potAmount += minBet;
-                }
-            }
+            // このレベルのポット金額を計算（増分のみ）
+            // remainingPlayersの人数 × 増分ベット額
+            potAmount = remainingPlayers.length * incrementalBet;
 
             // 参加可能プレイヤーを決定（フォールド済みを除外）
             for (const player of remainingPlayers) {
@@ -468,7 +467,8 @@ export async function calculateSidePots(roomId: string): Promise<any[]> {
             });
 
             // 次のレベルへ
-            remainingPlayers = remainingPlayers.filter(p => p.current_bet > minBet);
+            previousLevel = currentLevel;
+            remainingPlayers = remainingPlayers.filter(p => p.current_bet > currentLevel);
             potIndex++;
         }
 

@@ -7,6 +7,7 @@ import type { GameRoom, Player, GameAction, SidePot, PotWinnerSelection } from '
 import PlayerCard from '@/components/poker/PlayerCard';
 import ActionPanel from '@/components/poker/ActionPanel';
 import PotDisplay from '@/components/poker/PotDisplay';
+import PokerMat from '@/components/poker/PokerMat';
 
 import WinnerSelector from '@/components/poker/WinnerSelector';
 import CoinTransfer from '@/components/poker/CoinTransfer';
@@ -160,26 +161,14 @@ export default function RoomPage() {
                 <PotDisplay pot={room.current_pot} round={room.current_round} />
             </div>
 
-            {/* プレイヤーグリッド (ホストのみ) */}
+            {/* ポーカーマット (ホストのみ) */}
             {isHost && (
-                <div className="max-w-6xl mx-auto mb-6">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {Array.from({ length: room.max_players }).map((_, index) => {
-                            const player = players.find(p => p.position === index);
-                            return (
-                                <PlayerCard
-                                    key={index}
-                                    player={player}
-                                    position={index}
-                                    isDealer={room.dealer_position === index}
-                                    isCurrentPlayer={player?.id === currentPlayerId}
-                                    sbPosition={room.sb_position}
-                                    bbPosition={room.bb_position}
-                                />
-                            );
-                        })}
-                    </div>
-                </div>
+                <PokerMat
+                    players={players}
+                    room={room}
+                    currentPlayerId={currentPlayerId}
+                    isHost={isHost}
+                />
             )}
 
             {/* 参加者へのメッセージ (参加者のみ) */}

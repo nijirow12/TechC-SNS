@@ -23,6 +23,7 @@ export default function HomePage() {
       const data = await response.json();
 
       if (data.success) {
+        localStorage.setItem('is_host', 'true');
         router.push(`/room/${data.room_code}`);
       } else {
         setError(data.error || 'ルームの作成に失敗しました');
@@ -63,6 +64,7 @@ export default function HomePage() {
         // プレイヤーIDをローカルストレージに保存
         localStorage.setItem('player_id', data.player.id);
         localStorage.setItem('player_nickname', data.player.nickname);
+        localStorage.removeItem('is_host');
         router.push(`/room/${roomCode.toUpperCase()}`);
       } else {
         setError(data.error || 'ルームへの参加に失敗しました');

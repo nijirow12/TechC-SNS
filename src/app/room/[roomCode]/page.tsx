@@ -23,10 +23,13 @@ export default function RoomPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [showWinnerSelect, setShowWinnerSelect] = useState(false);
+    const [isHost, setIsHost] = useState(false);
 
     useEffect(() => {
         const playerId = localStorage.getItem('player_id');
+        const isHostUser = localStorage.getItem('is_host') === 'true';
         setCurrentPlayerId(playerId);
+        setIsHost(isHostUser);
 
         let unsubscribe: (() => void) | null = null;
 
@@ -157,28 +160,39 @@ export default function RoomPage() {
                 <PotDisplay pot={room.current_pot} round={room.current_round} />
             </div>
 
-            {/* プレイヤーグリッド */}
-            <div className="max-w-6xl mx-auto mb-6">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {Array.from({ length: room.max_players }).map((_, index) => {
-                        const player = players.find(p => p.position === index);
-                        return (
-                            <PlayerCard
-                                key={index}
-                                player={player}
-                                position={index}
-                                isDealer={room.dealer_position === index}
-                                isCurrentPlayer={player?.id === currentPlayerId}
-                                sbPosition={room.sb_position}
-                                bbPosition={room.bb_position}
-                            />
-                        );
-                    })}
+            {/* プレイヤーグリッド (ホストのみ) */}
+            {isHost && (
+                <div className="max-w-6xl mx-auto mb-6">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {Array.from({ length: room.max_players }).map((_, index) => {
+                            const player = players.find(p => p.position === index);
+                            return (
+                                <PlayerCard
+                                    key={index}
+                                    player={player}
+                                    position={index}
+                                    isDealer={room.dealer_position === index}
+                                    isCurrentPlayer={player?.id === currentPlayerId}
+                                    sbPosition={room.sb_position}
+                                    bbPosition={room.bb_position}
+                                />
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
+            )}
 
-            {/* ゲーム開始ボタン（waiting状態のみ） */}
-            {room.status === 'waiting' && (
+            {/* 参加者へのメッセージ (参加者のみ) */}
+            {!isHost && (
+                <div className="max-w-6xl mx-auto mb-6 text-center">
+                    <div className="p-4 bg-slate-800/30 rounded-xl">
+                        <p className="text-slate-400">ポーカーマットはホスト画面で確認してください</p>
+                    </div>
+                </div>
+            )}
+
+            {/* ゲーム開始ボタン（waiting状態かつホストのみ） */}
+            {isHost && room.status === 'waiting' && (
                 <div className="max-w-6xl mx-auto mb-6">
                     <div className="p-6 bg-gradient-to-br from-emerald-900/30 to-teal-900/30 backdrop-blur-sm rounded-2xl border border-emerald-500/30">
                         <h3 className="text-xl font-bold mb-4 text-emerald-300">🎮 ゲーム開始</h3>
@@ -209,8 +223,8 @@ export default function RoomPage() {
                 </div>
             )}
 
-            {/* アクションパネル */}
-            {currentPlayer && (
+            {/* アクションパネル (プレイヤーかつ非ホスト、ゲーム中のみ) */}
+            {!isHost && currentPlayer && room.status === 'playing' && (
                 <ActionPanel
                     player={currentPlayer}
                     room={room}
@@ -219,21 +233,32 @@ export default function RoomPage() {
                 />
             )}
 
-            {/* ラウンド管理 */}
-            <div className="max-w-6xl mx-auto mt-6">
-                <div className="p-6 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700">
-                    <h3 className="text-lg font-semibold mb-4 text-teal-400">ラウンド管理</h3>
-                    <button
-                        onClick={handleCalculateSidePots}
-                        className="w-full py-3 px-6 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg"
-                    >
-                        🏆 ラウンド終了 - 勝者を選択
-                    </button>
+            {/* 待機メッセージ (プレイヤーかつ非ホスト、待機中) */}
+            {!isHost && room.status === 'waiting' && (
+                <div className="max-w-6xl mx-auto mb-6 text-center">
+                    <div className="p-6 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 animate-pulse">
+                        <p className="text-xl font-semibold text-emerald-400">ホストがゲームを開始するのを待っています...</p>
+                    </div>
                 </div>
-            </div>
+            )}
 
-            {/* 勝者選択モーダル */}
-            {showWinnerSelect && sidePots.length > 0 && (
+            {/* ラウンド管理 (ホストのみ) */}
+            {isHost && (
+                <div className="max-w-6xl mx-auto mt-6">
+                    <div className="p-6 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700">
+                        <h3 className="text-lg font-semibold mb-4 text-teal-400">ラウンド管理</h3>
+                        <button
+                            onClick={handleCalculateSidePots}
+                            className="w-full py-3 px-6 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg"
+                        >
+                            🏆 ラウンド終了 - 勝者を選択
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* 勝者選択モーダル (ホストのみ) */}
+            {isHost && showWinnerSelect && sidePots.length > 0 && (
                 <WinnerSelector
                     sidePots={sidePots}
                     players={players}
@@ -246,8 +271,8 @@ export default function RoomPage() {
                 />
             )}
 
-            {/* コイン譲渡 */}
-            {currentPlayer && currentPlayerId && (
+            {/* コイン譲渡 (プレイヤーかつ非ホスト) */}
+            {!isHost && currentPlayer && currentPlayerId && (
                 <CoinTransfer
                     players={players}
                     currentPlayerId={currentPlayerId}

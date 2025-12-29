@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, updatePlayer, updateGameRoom, getPlayers, getSidePots } from '@/lib/supabase/poker';
+import { updateUserChips } from '@/lib/supabase/userAccount';
 import type { Player, GameRoom, PotWinnerSelection } from '@/lib/types/poker';
 
 export async function POST(request: NextRequest) {
@@ -73,12 +74,25 @@ export async function POST(request: NextRequest) {
         // 全プレイヤーのチップとステータスを更新
         for (const player of players) {
             const winnings = playerWinnings.get(player.id) || 0;
+            const newChips = player.chips + winnings;
 
             await updatePlayer(player.id, {
-                chips: player.chips + winnings,
+                chips: newChips,
                 current_bet: 0,
                 status: 'active',
             });
+
+            // ユーザーアカウントのチップ残高も更新（永続化）
+            // Note: player.user_account_id はDB上で取得される
+            const { data: playerData } = await supabase
+                .from('players')
+                .select('user_account_id')
+                .eq('id', player.id)
+                .single();
+
+            if (playerData?.user_account_id) {
+                await updateUserChips(playerData.user_account_id, newChips);
+            }
         }
 
         // サイドポットを削除

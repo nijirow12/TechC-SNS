@@ -74,7 +74,7 @@ function DroppablePlayerCard({ player, children }: { player: Player; children: R
     });
 
     return (
-        <div ref={setNodeRef} className={isOver ? 'ring-2 ring-purple-400 rounded-xl' : ''}>
+        <div ref={setNodeRef} className={`p-2 -m-2 rounded-xl transition-all ${isOver ? 'ring-4 ring-purple-400 bg-purple-500/10' : ''}`}>
             {children}
         </div>
     );
@@ -118,45 +118,35 @@ export default function PokerMat({ players, room, currentPlayerId, isHost }: Pok
 
             const targetPlayer = players.find(p => p.position === targetPosition);
 
+            // Fire-and-forget: APIを呼び出すが結果を待たない
+            // Supabaseのリアルタイム購読が自動的にUIを更新する
             if (targetPlayer) {
                 // 入れ替え
-                try {
-                    const response = await fetch('/api/players/swap', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            room_id: room.id,
-                            player1_id: draggedPlayer.id,
-                            player2_id: targetPlayer.id,
-                        }),
-                    });
-
-                    const data = await response.json();
-                    if (!data.success) {
-                        alert(data.error || '座席の入れ替えに失敗しました');
-                    }
-                } catch (err) {
-                    alert('サーバーエラーが発生しました');
-                }
+                fetch('/api/players/swap', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        room_id: room.id,
+                        player1_id: draggedPlayer.id,
+                        player2_id: targetPlayer.id,
+                    }),
+                }).catch(err => {
+                    console.error('座席の入れ替えに失敗:', err);
+                    alert('座席の入れ替えに失敗しました');
+                });
             } else {
                 // 空席に移動
-                try {
-                    const response = await fetch('/api/players/move', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            player_id: draggedPlayer.id,
-                            new_position: targetPosition,
-                        }),
-                    });
-
-                    const data = await response.json();
-                    if (!data.success) {
-                        alert(data.error || '座席の移動に失敗しました');
-                    }
-                } catch (err) {
-                    alert('サーバーエラーが発生しました');
-                }
+                fetch('/api/players/move', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        player_id: draggedPlayer.id,
+                        new_position: targetPosition,
+                    }),
+                }).catch(err => {
+                    console.error('座席の移動に失敗:', err);
+                    alert('座席の移動に失敗しました');
+                });
             }
         }
 
@@ -171,26 +161,21 @@ export default function PokerMat({ players, room, currentPlayerId, isHost }: Pok
 
             if (badgeType === 'sb') {
                 updates.sb_position = targetPlayer.position;
-                updates.bb_position = room.bb_position;
+                updates.bb_position = room.bb_position ?? null;
             } else {
-                updates.sb_position = room.sb_position;
+                updates.sb_position = room.sb_position ?? null;
                 updates.bb_position = targetPlayer.position;
             }
 
-            try {
-                const response = await fetch('/api/blinds/update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updates),
-                });
-
-                const data = await response.json();
-                if (!data.success) {
-                    alert(data.error || 'ブラインド設定に失敗しました');
-                }
-            } catch (err) {
-                alert('サーバーエラーが発生しました');
-            }
+            // Fire-and-forget: APIを呼び出すが結果を待たない
+            fetch('/api/blinds/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates),
+            }).catch(err => {
+                console.error('ブラインド設定に失敗:', err);
+                alert('ブラインド設定に失敗しました');
+            });
         }
     };
 

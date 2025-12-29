@@ -11,7 +11,7 @@ X（旧Twitter）風のシンプルなSNSが完成しました！
 1. [Supabase Dashboard](https://supabase.com/dashboard)にアクセス
 2. プロジェクトを選択
 3. **SQL Editor**を開く
-4. `supabase-sns-schema.sql`の内容をコピー&ペースト
+4. `database/sns/schema.sql`の内容をコピー&ペースト
 5. **Run**をクリックして実行
 
 これにより以下が作成されます：
@@ -162,7 +162,7 @@ src/
 
 ### 投稿が表示されない
 
-1. `supabase-sns-schema.sql`が正しく実行されたか確認
+1. `database/sns/schema.sql`が正しく実行されたか確認
 2. RLSポリシーが設定されているか確認
 3. ブラウザのコンソールでエラーを確認
 

@@ -21,7 +21,7 @@ npm install
 ### 2. Supabaseプロジェクトの設定
 
 1. [Supabase](https://supabase.com)でプロジェクトを作成
-2. SQL Editorで `poker-schema.sql` を実行してテーブルを作成
+2. SQL Editorで `database/poker/schema.sql` を実行してテーブルを作成
 3. プロジェクトのURLとAnon Keyを取得
 
 ### 3. 環境変数の設定
@@ -103,7 +103,7 @@ src/
 ### リアルタイム同期が動作しない
 
 1. Supabaseプロジェクトでリアルタイム機能が有効か確認
-2. `poker-schema.sql`の最後の部分が実行されているか確認
+2. `database/poker/schema.sql`の最後の部分が実行されているか確認
 3. ブラウザのコンソールでエラーを確認
 
 ### プレイヤーが参加できない
